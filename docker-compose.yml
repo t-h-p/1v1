@@ -1,0 +1,35 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile 
+    ports:
+      - "3000:3000"
+
+    develop:
+      watch:
+        - action: sync
+          path: ./server/
+          target: /app/server/
+          ignore:
+            - node_modules/
+            - .git/
+            - dist/
+        - action: rebuild
+          path: ./server/package.json
+  db:
+    image: mariadb:lastest
+    container_name: mariadb_server
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASS}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  mariadb_data:
