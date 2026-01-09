@@ -1,12 +1,10 @@
-// User information
-
 import {v4 as uuidv4} from "uuid";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
 import { pool } from  "./db.js";
 
-interface User {
+export interface User {
     readonly uuid: string;
     name: string;
     passwordHash: string;
@@ -19,13 +17,7 @@ const createUser = (name: string, passwordHash: string): User => ({
 });
 
 
-export class AuthService {
-
-  private placeholderLookup = async (name: string) : Promise<User | null> => {
-    return Promise.resolve(
-      createUser(name, "PLACEHOLDER")
-    )
-  }
+class AuthService {
 
   private hashPassword = async (password: string): Promise<string> => {
     const salt = await bcrypt.genSalt();
@@ -69,17 +61,19 @@ export class AuthService {
     }
   }
 
-  loginUser = async (name: string, password: string): Promise<User | null> => {
-    const user = await this.userLookup(name)
-    const passwordHash = await this.hashPassword(password);
+  loginUser = async (name: string, passwordHash: string): Promise<User | null> => {
+    let user = await this.userLookup(name);
 
     if (!user) {
       console.log(`User '{name}' didn't exist, creating new entry.`);
-      const newUser = await this.registerUser(name, passwordHash);
-      return newUser; 
+      user = await this.registerUser(name, passwordHash);
+    } else if (passwordHash != user.passwordHash) {
+      user = null;
     }
-    
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
-    return (isMatch ? user : null);
+
+    return user;
+
   }
 };
+
+export const authService = new AuthService();
