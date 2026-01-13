@@ -3,9 +3,10 @@ import dotenv from "dotenv";
 dotenv.config({ path: '../.env'});
 import { createServer } from "node:http";
 import { Server, type DefaultEventsMap,  type Socket } from "socket.io";
+import bcrypt from "bcrypt";
 
 import { authService } from "./user.js";
-import { registerUserSocket, type SocketData } from "./connection.js";
+import { registerUserSocket, type SocketData } from "./signalingConnection.js";
 
 const port = 3000;
 
@@ -18,9 +19,9 @@ app.get('/', (_, res) => {
 });
 
 io.on('connection', (socket) => {
-  socket.on('login-request', async (name, passwordHash) => {
+  socket.on('login-request', async (name, password) => {
     try {
-      const user = await authService.loginUser(name, passwordHash);
+      const user = await authService.loginUser(name, password);
       if (!user) {
         throw new Error(`Could not login to user ${name}`);
       }
