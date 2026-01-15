@@ -1,5 +1,6 @@
-import { createSignal, onMount, onCleanup, createEffect } from "solid-js";
+import { createSignal, onMount, onCleanup } from "solid-js";
 import { io, Socket } from "socket.io-client";
+import { stringify } from "uuid";
 
 const RTC_CONFIG = {
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -7,26 +8,25 @@ const RTC_CONFIG = {
 
 export const WebRTCConnector = (props: {
     myUuid: string;
-    targetUuid?: string;
-    
 }) => {
     let socket: Socket;
     let pc: RTCPeerConnection;
-
     const [connectionStatus, setConnectionStatus] =
         createSignal("Disconnected");
     const [remoteStream, setRemoteStream] = createSignal<MediaStream | null>(
         null
     );
+    const [targetUuid, setTargetUuid] = createSignal("");
+    const [incomingCall, setIncomingCall] = createSignal(false);
 
     onMount(() => {
-        socket = io("http://localhost:3000", {
-            query: { uuid: props.myUuid },
-        });
-
+        socket = io("http://localhost:8080");
+        
         socket.on("connect", () => setConnectionStatus("Signaling Connected"));
 
         socket.on("webrtc-offer", async ({ sdp, fromUuid }) => {
+            setIncomingCall(true);
+            setTargetUuid(fromUuid);
             await handleOffer(sdp, fromUuid);
         });
 
@@ -39,14 +39,14 @@ export const WebRTCConnector = (props: {
         });
     });
 
-    const setupPeerConnection = (targetUuid: string) => {
+    const setupPeerConnection = (target: string) => {
         pc = new RTCPeerConnection(RTC_CONFIG);
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
                 socket.emit("webrtc-ice-candidate", {
                     candidate: event.candidate,
-                    toUuid: targetUuid,
+                    toUuid: target,
                 });
             }
         };
@@ -60,9 +60,17 @@ export const WebRTCConnector = (props: {
         };
     };
 
+    const login = async () => {
+        const name = `Test-${props.myUuid}`
+        const password = String(Math.random());
+        socket.emit("login-request", {name: name, password: password});
+    }
+
     const initiateCall = async () => {
-        if (!props.targetUuid) return;
-        setupPeerConnection(props.targetUuid);
+        const target = targetUuid().trim();
+        if (!target) return;
+
+        setupPeerConnection(target);
 
         // Add local tracks here if needed (e.g., webcam)
         const offer = await pc.createOffer();
@@ -70,7 +78,7 @@ export const WebRTCConnector = (props: {
 
         socket.emit("webrtc-offer", {
             sdp: offer,
-            toUuid: props.targetUuid,
+            toUuid: target,
             fromUuid: props.myUuid,
         });
     };
@@ -101,17 +109,43 @@ export const WebRTCConnector = (props: {
             <div class="text-xl font-medium text-black">
                 WebRTC Status: {connectionStatus()}
             </div>
+
+            {incomingCall() && (
+                <div class="p-3 bg-green-50 border border-green-200 rounded-md">
+                    <p class="text-green-800 text-sm font-medium">
+                        Incoming call auto-accepted from: {targetUuid()}
+                    </p>
+                </div>
+            )}
+            
             <p class="text-slate-500 text-sm">
-                Self: {props.myUuid}
+                Your UUID: {props.myUuid}
             </p>
-            <p class="text-slate-500 text-sm">
-                Target: {props.targetUuid || "None"}
-            </p>
+
+            <div class="space-y-2">
+                <label class="block text-sm font-medium text-slate-700">
+                    Target UUID
+                </label>
+                <input
+                    type="text"
+                    value={targetUuid()}
+                    onInput={(e) => setTargetUuid(e.currentTarget.value)}
+                    placeholder="Enter target UUID to connect"
+                    class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+            </div>
+            
+            <button
+                onClick={login}
+                class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed" 
+            >
+                Login
+            </button>
 
             <button
                 onClick={initiateCall}
-                disabled={!props.targetUuid}
-                class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 disabled:opacity-50"
+                disabled={!targetUuid().trim()}
+                class="w-full bg-indigo-600 text-white py-2 px-4 rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 Start Connection
             </button>

@@ -47,8 +47,8 @@ class AuthService {
     try {
       conn = await pool.getConnection();
       const passwordHash = await bcrypt.hash(password, 10);
-      const result = await conn.query(
-        "INSERT INTO users (uuid,name,passwordHash) VALUES (?,?,?,?)",
+      await conn.query(
+        "INSERT INTO users (uuid,name,passwordHash) VALUES (?,?,?)",
         [uuid, name, passwordHash]
       );
       const newUser = await this.userLookup(name);
@@ -65,7 +65,7 @@ class AuthService {
     let user = await this.userLookup(name);
 
     if (!user) {
-      console.log(`User '{name}' didn't exist.`);
+      console.log(`User '${name}' didn't exist.`);
       return null;
     }
 

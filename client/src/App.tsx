@@ -8,7 +8,7 @@ const App: Component = () => {
     const [randomTarget] = createSignal(uuidv4());
     return (
             <div>
-                <WebRTCConnector myUuid={randomUuid()} targetUuid={randomTarget()} />
+                <WebRTCConnector myUuid={randomUuid()} />
             </div> 
     );
 };
