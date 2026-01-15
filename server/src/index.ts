@@ -26,12 +26,16 @@ io.on('connection', (socket) => {
     const {name, password} = data;
     console.log(`Received login request from ${name}`)
     try {
-      const user = await authService.loginUser(name, password);
+      let user = await authService.loginUser(name, password);
       if (!user) {
-        throw new Error(`Could not login to user ${name}`);
+        user = await authService.registerUser(name, password); 
       }
-      registerUserSocket(socket, user);
-      socket.emit('login-success', {username: user?.name, });
+      if (user) {
+        registerUserSocket(socket, user);
+        socket.emit('login-success', {uuid: user.uuid});
+      } else {
+        throw new Error("Could not register user.")
+      }
     } catch (err) {
       console.log(err);
       socket.emit('error','Login failed')

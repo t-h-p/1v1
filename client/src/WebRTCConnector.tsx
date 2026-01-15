@@ -1,6 +1,5 @@
 import { createSignal, onMount, onCleanup } from "solid-js";
 import { io, Socket } from "socket.io-client";
-import { stringify } from "uuid";
 
 const RTC_CONFIG = {
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -16,6 +15,7 @@ export const WebRTCConnector = (props: {
     const [remoteStream, setRemoteStream] = createSignal<MediaStream | null>(
         null
     );
+    const [personalUuid, setPersonalUuid] = createSignal("");
     const [targetUuid, setTargetUuid] = createSignal("");
     const [incomingCall, setIncomingCall] = createSignal(false);
 
@@ -23,6 +23,12 @@ export const WebRTCConnector = (props: {
         socket = io("http://localhost:8080");
         
         socket.on("connect", () => setConnectionStatus("Signaling Connected"));
+
+        socket.on("login-success", (data) => {
+            const {uuid} = data;
+            setPersonalUuid(uuid);
+            console.log(`Logged in. UUID: ${uuid}`)
+        })
 
         socket.on("webrtc-offer", async ({ sdp, fromUuid }) => {
             setIncomingCall(true);
@@ -61,7 +67,8 @@ export const WebRTCConnector = (props: {
     };
 
     const login = async () => {
-        const name = `Test-${props.myUuid}`
+        const suffix = Math.random();
+        const name = `Test-${suffix}`
         const password = String(Math.random());
         socket.emit("login-request", {name: name, password: password});
     }
@@ -119,7 +126,7 @@ export const WebRTCConnector = (props: {
             )}
             
             <p class="text-slate-500 text-sm">
-                Your UUID: {props.myUuid}
+                Your UUID: {personalUuid()}
             </p>
 
             <div class="space-y-2">
